@@ -56,34 +56,21 @@ void setup() {
   // Configure digital output connected to 3.3V regulator shutdown.
   pinMode(REG_SHUTDOWN_PIN, OUTPUT);
   delay(100);
+  digitalWrite(REG_SHUTDOWN_PIN, LOW);
+  delay(100);
   pinMode(RELAIS, OUTPUT);
   delay(100);
   digitalWrite(RELAIS, LOW);
   delay(100);
-  digitalWrite(REG_SHUTDOWN_PIN, HIGH);
-  Serial.println(F("Power on WiFi..."));
-  delay(100);
-  // Initialize the CC3000.
-  Serial.println(F("\nInitializing CC3000..."));
-  if (!cc3000.begin())
-  {
-    Serial.println(F("Couldn't begin()! Check your wiring?"));
-    while(1);
-  }
+
 
   // Disable CC3000 now that it is initialized.
-  shutdownWiFi();
+  //shutdownWiFi();
 
 
-  Serial.println(F("\nSleep first..."));
-  delay(100);
-  sleepLoop();
 
-  digitalWrite(RELAIS, LOW);
 
   setMode(1); //Set Power Saving
-
-enableWiFi();
 
   Serial.println(F("Setup complete."));
 }
@@ -96,6 +83,20 @@ enableWiFi();
 void loop() {
   wdt_enable(WDTO_8S);
 
+  digitalWrite(REG_SHUTDOWN_PIN, HIGH);
+  Serial.println(F("Power on WiFi..."));
+  delay(100);
+  // Initialize the CC3000.
+  Serial.println(F("\nInitializing CC3000..."));
+  if (!cc3000.begin())
+  {
+    Serial.println(F("Couldn't begin()! Check your wiring?"));
+    while(1);
+  }
+
+  wdt_reset();
+
+  enableWiFi();
   // reconnect if we lost connection to AIO
 
   if(! client.connected()) {
@@ -139,12 +140,18 @@ void loop() {
   }
   client.disconnect();
   delay(100);
+
   shutdownWiFi();
+  Serial.println(F("\nSleep first..."));
+  delay(100);
+  sleepLoop();
 
-  Serial.print(F("Waiting for Reset..."));
-  while(1) {
+  digitalWrite(RELAIS, LOW);
 
-  }; //Do not reset WDT, so that Interrupt appear, which will cause rebooting Arduino
+  //  Serial.print(F("Waiting for Reset..."));
+  //  while(1) {
+  //
+  //  }; //Do not reset WDT, so that Interrupt appear, which will cause rebooting Arduino
 }    
 
 //======================================
@@ -358,8 +365,11 @@ boolean enableWiFi() {
   digitalWrite(REG_SHUTDOWN_PIN, HIGH);
   delay(100); 
 
+wdt_reset();
   // Turn on the CC3000.
+  wdt_disable();
   wlan_start(0);
+  wdt_enable(WDTO_8S);
 
   // Connect to the AP.
   if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
@@ -373,6 +383,7 @@ boolean enableWiFi() {
   int attempts = 0;
   while (!cc3000.checkDHCP())
   {
+    wdt_reset();
     if (attempts >= 20) {
       Serial.println(F("DHCP didn't finish!"));
       return false;
@@ -442,6 +453,7 @@ int to_int(byte* payload, int length) {
   return atoi(val);
 
 }
+
 
 
 
